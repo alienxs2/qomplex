@@ -1,0 +1,28 @@
+# Development Dockerfile with hot reload support
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dependencies for native modules
+RUN apk add --no-cache python3 make g++
+
+# Copy package files
+COPY package.json package-lock.json* ./
+COPY frontend/package.json ./frontend/
+COPY backend/package.json ./backend/
+COPY shared/package.json ./shared/
+
+# Install all dependencies
+RUN npm ci
+
+# Copy source files
+COPY . .
+
+# Build shared package
+RUN npm run build --workspace=shared
+
+# Expose ports for backend and frontend dev server
+EXPOSE 3000 5173
+
+# Start development servers
+CMD ["npm", "run", "dev"]

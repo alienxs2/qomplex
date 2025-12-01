@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  qomplex-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qomplex-app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgresql://qomplex:${POSTGRES_PASSWORD:-qomplex_dev_password}@qomplex-postgres:5432/qomplex
+      - JWT_SECRET=${JWT_SECRET:-change_this_in_production_min_32_chars}
+      - CLAUDE_CLI_TIMEOUT_MS=${CLAUDE_CLI_TIMEOUT_MS:-600000}
+    volumes:
+      - /home/dev:/home/dev:ro
+      - ~/.claude:/.claude:ro
+    depends_on:
+      qomplex-postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - qomplex-network
+
+  qomplex-postgres:
+    image: postgres:16-alpine
+    container_name: qomplex-postgres
+    environment:
+      - POSTGRES_USER=qomplex
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-qomplex_dev_password}
+      - POSTGRES_DB=qomplex
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qomplex -d qomplex"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - qomplex-network
+    # Note: Database port is not exposed externally for security
+
+  # Development service with hot reload
+  qomplex-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: qomplex-dev
+    ports:
+      - "3000:3000"
+      - "5173:5173"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - DATABASE_URL=postgresql://qomplex:${POSTGRES_PASSWORD:-qomplex_dev_password}@qomplex-postgres:5432/qomplex
+      - JWT_SECRET=${JWT_SECRET:-dev_jwt_secret_change_in_production}
+      - CLAUDE_CLI_TIMEOUT_MS=${CLAUDE_CLI_TIMEOUT_MS:-600000}
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/frontend/node_modules
+      - /app/backend/node_modules
+      - /app/shared/node_modules
+      - /home/dev:/home/dev:ro
+      - ~/.claude:/.claude:ro
+    depends_on:
+      qomplex-postgres:
+        condition: service_healthy
+    profiles:
+      - dev
+    networks:
+      - qomplex-network
+
+networks:
+  qomplex-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

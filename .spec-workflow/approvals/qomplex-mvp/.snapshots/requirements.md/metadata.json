@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/qomplex-mvp/requirements.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-01T20:21:05.345Z",
+      "trigger": "initial",
+      "approvalId": "approval_1764620465337_me363xkt3",
+      "approvalTitle": "Requirements Document for Qomplex MVP"
+    }
+  ]
+}

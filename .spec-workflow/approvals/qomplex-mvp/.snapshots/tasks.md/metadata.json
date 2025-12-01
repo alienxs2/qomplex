@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/qomplex-mvp/tasks.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-01T20:53:32.656Z",
+      "trigger": "initial",
+      "approvalId": "approval_1764622412652_eag48bsfl",
+      "approvalTitle": "Tasks Breakdown"
+    }
+  ]
+}

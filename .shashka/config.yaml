@@ -1,0 +1,20 @@
+# SHASHKA Configuration
+# Solo Human + AI System for Knowledge & Automation
+
+project:
+  name: "kompleks_project_repo"
+  description: "Qomplex - AI-powered development platform"
+  type: "web-app"
+  stack:
+    languages: []
+    frameworks: []
+    databases: []
+
+repositories:
+  main: "https://github.com/alienxs2/qomplex"
+  frontend: "https://github.com/alienxs2/bolt_ai_front"
+
+# Language settings - configured on first /pm run
+language:
+  communication: "Русский"  # Language for talking to you
+  documentation: "English"  # Language for SPECs, logs, reports

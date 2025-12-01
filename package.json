@@ -1,0 +1,35 @@
+{
+  "name": "qomplex",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Web interface for Claude Code CLI - AI Agent Orchestration System",
+  "type": "module",
+  "workspaces": [
+    "frontend",
+    "backend",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "dev:backend": "npm run dev --workspace=backend",
+    "build": "npm run build --workspaces --if-present",
+    "build:shared": "npm run build --workspace=shared",
+    "build:frontend": "npm run build --workspace=frontend",
+    "build:backend": "npm run build --workspace=backend",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "clean": "rm -rf node_modules frontend/node_modules backend/node_modules shared/node_modules"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "claude",
+    "ai",
+    "cli",
+    "web-interface"
+  ],
+  "author": "",
+  "license": "MIT"
+}
