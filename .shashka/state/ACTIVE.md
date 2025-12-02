@@ -1,5 +1,5 @@
 # Active Work
-**Last Updated:** 2025-12-01
+**Last Updated:** 2025-12-02
 
 ## Currently Running
 None - session ending
@@ -9,24 +9,46 @@ None
 
 ## Next in Queue
 
-### Phase 4: Frontend Core
+### Phase 6: Integration
 | Task | Description | Priority |
 |------|-------------|----------|
-| 4.1 | Create React app entry point and router | HIGH |
-| 4.2 | Implement useAuthStore with Zustand | HIGH |
-| 4.3 | Implement useProjectStore and useAgentStore | HIGH |
-| 4.4 | Implement useMessageStore and useTabStore | MEDIUM |
-| 4.5 | Implement useWebSocket hook | MEDIUM |
-| 4.6 | Create API utility functions | MEDIUM |
+| 6.1 | Connect ChatPanel to WebSocket for streaming | HIGH |
+| 6.2 | Integrate DirectoryBrowser with project creation | HIGH |
+| 6.3 | Integrate AgentSettings with backend updates | MEDIUM |
+| 6.4 | Integrate DocViewer with linked MD files | MEDIUM |
+| 6.5 | Integrate session resume with chat history | MEDIUM |
+| 6.6 | Implement mobile navigation flow | MEDIUM |
 
 ## Recently Completed
 
-### Phase 1: Project Setup (5/5)
-- [x] 1.1 Monorepo structure with npm workspaces
-- [x] 1.2 TypeScript with strict mode
-- [x] 1.3 Docker and docker-compose
-- [x] 1.4 Shared types and Zod schemas
-- [x] 1.5 TailwindCSS and base styles
+### Phase 5: UI Components (12/12)
+- [x] 5.1 Create LoginPage and RegisterPage
+- [x] 5.2 Create MainLayout with responsive design
+- [x] 5.3 Create ProjectSelector component
+- [x] 5.4 Create DirectoryBrowser modal
+- [x] 5.5 Create AgentList component
+- [x] 5.6 Create AgentSettingsPanel component
+- [x] 5.7 Create ChatPanel and MessageBubble
+- [x] 5.8 Create ToolUsageDisplay
+- [x] 5.9 Create TokenUsageIndicator
+- [x] 5.10 Create DocViewer
+- [x] 5.11 Create MobileTabSwitcher
+- [x] 5.12 Create MobileHeader
+
+### Phase 4: Frontend Core (6/6)
+- [x] 4.1 Create React app entry point and router
+- [x] 4.2 Implement useAuthStore with Zustand
+- [x] 4.3 Implement useProjectStore and useAgentStore
+- [x] 4.4 Implement useMessageStore and useTabStore
+- [x] 4.5 Implement useWebSocket hook
+- [x] 4.6 Create API utility functions
+
+### Phase 3: CLI Integration (5/5)
+- [x] 3.1 ClaudeCliService core
+- [x] 3.2 TranscriptService
+- [x] 3.3 WebSocket server
+- [x] 3.4 WebSocket handler
+- [x] 3.5 Error handling
 
 ### Phase 2: Backend Core (8/8)
 - [x] 2.1 Express server with middleware
@@ -38,12 +60,12 @@ None
 - [x] 2.7 Project and agent routes
 - [x] 2.8 File browsing endpoint
 
-### Phase 3: CLI Integration (5/5)
-- [x] 3.1 ClaudeCliService core
-- [x] 3.2 TranscriptService
-- [x] 3.3 WebSocket server
-- [x] 3.4 WebSocket handler
-- [x] 3.5 Error handling
+### Phase 1: Project Setup (5/5)
+- [x] 1.1 Monorepo structure with npm workspaces
+- [x] 1.2 TypeScript with strict mode
+- [x] 1.3 Docker and docker-compose
+- [x] 1.4 Shared types and Zod schemas
+- [x] 1.5 TailwindCSS and base styles
 
 ## Progress Summary
 
@@ -52,15 +74,15 @@ None
 | 1. Project Setup | 5 | 5 | DONE |
 | 2. Backend Core | 8 | 8 | DONE |
 | 3. CLI Integration | 5 | 5 | DONE |
-| 4. Frontend Core | 0 | 6 | PENDING |
-| 5. UI Components | 0 | 12 | PENDING |
+| 4. Frontend Core | 6 | 6 | DONE |
+| 5. UI Components | 12 | 12 | DONE |
 | 6. Integration | 0 | 6 | PENDING |
 | 7. Testing & Polish | 0 | 7 | PENDING |
-| **Total** | **18** | **49** | **37%** |
+| **Total** | **36** | **49** | **73%** |
 
 ## How to Start Next Session
 
 1. Read handoff notes: `.shashka/state/HANDOFF.md`
 2. Open tasks document: `.spec-workflow/specs/qomplex-mvp/tasks.md`
-3. Start with Task 4.1 (React app entry point)
+3. Start with Task 6.1 (Connect ChatPanel to WebSocket)
 4. Follow workflow: mark in-progress -> implement -> log -> mark complete

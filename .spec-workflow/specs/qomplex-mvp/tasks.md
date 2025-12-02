@@ -196,7 +196,7 @@
 
 ## Phase 4: Frontend Core
 
-- [ ] 4.1 Create React app entry point and router
+- [x] 4.1 Create React app entry point and router
   - Files: `frontend/src/main.tsx`, `frontend/src/App.tsx`, `frontend/src/router.tsx`
   - Setup React 18 with StrictMode
   - Configure React Router with routes for login, register, main app
@@ -206,7 +206,7 @@
   - _Requirements: REQ-1 (auth flow routing)_
   - _Prompt: Implement the task for spec qomplex-mvp, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Frontend Developer specializing in React architecture | Task: Create React app entry point with React 18 StrictMode. Setup React Router with routes: /login, /register, / (main app). Create ProtectedRoute component that redirects to /login if not authenticated. Use lazy loading for main app route | Restrictions: Do not add routes not needed for MVP, use React Router v6 patterns, do not implement auth logic yet (just route structure) | _Leverage: bolt_ai_front App.tsx for route structure pattern | _Requirements: REQ-1 (auth flow routing) | Success: App renders, routes work, protected routes redirect when not authenticated | Instructions: 1) Run spec-workflow-guide 2) Mark in-progress 3) Create app and router 4) Log implementation 5) Mark complete_
 
-- [ ] 4.2 Implement useAuthStore with Zustand
+- [x] 4.2 Implement useAuthStore with Zustand
   - Files: `frontend/src/store/authStore.ts`
   - Create auth store with persist middleware
   - Implement login, register, logout, checkAuth actions
@@ -216,7 +216,7 @@
   - _Requirements: REQ-1 (User Authentication)_
   - _Prompt: Implement the task for spec qomplex-mvp, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Frontend Developer specializing in state management | Task: Create useAuthStore following design.md interface exactly. Use Zustand with persist middleware to store token in localStorage. Implement login/register that call backend APIs, logout that clears state, checkAuth that validates stored token | Restrictions: Do not store password in state, clear token on 401 responses, use persist middleware for token only | _Leverage: design.md "useAuthStore" interface, clipendra-repo userStore.ts pattern | _Requirements: REQ-1 (User Authentication) | Success: Auth actions work, token persisted, state updates correctly | Instructions: 1) Run spec-workflow-guide 2) Mark in-progress 3) Implement store 4) Log implementation 5) Mark complete_
 
-- [ ] 4.3 Implement useProjectStore and useAgentStore
+- [x] 4.3 Implement useProjectStore and useAgentStore
   - Files: `frontend/src/store/projectStore.ts`, `frontend/src/store/agentStore.ts`
   - Create project store with CRUD actions
   - Create agent store with project-scoped loading
@@ -226,7 +226,7 @@
   - _Requirements: REQ-2, REQ-3_
   - _Prompt: Implement the task for spec qomplex-mvp, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Frontend Developer specializing in state management | Task: Create useProjectStore and useAgentStore following design.md interfaces. Project store should persist currentProject selection. Agent store should fetch agents when project changes. Both stores call backend APIs for CRUD operations | Restrictions: Clear agents when project changes, handle loading states, do not duplicate API logic | _Leverage: design.md "useProjectStore" and "useAgentStore" interfaces | _Requirements: REQ-2 (Project Management), REQ-3 (Agent Management) | Success: Projects load and persist, agents load per project, CRUD operations work | Instructions: 1) Run spec-workflow-guide 2) Mark in-progress 3) Implement stores 4) Log implementation 5) Mark complete_
 
-- [ ] 4.4 Implement useMessageStore and useTabStore
+- [x] 4.4 Implement useMessageStore and useTabStore
   - Files: `frontend/src/store/messageStore.ts`, `frontend/src/store/tabStore.ts`
   - Create message store for chat messages
   - Create tab store for open chat/doc tabs
@@ -236,7 +236,7 @@
   - _Requirements: REQ-4, REQ-5_
   - _Prompt: Implement the task for spec qomplex-mvp, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Frontend Developer specializing in state management | Task: Create useMessageStore and useTabStore following design.md interfaces. Message store should handle addMessage, updateLastMessage for streaming, setContextUsage for token tracking. Tab store manages open agent chats and document tabs | Restrictions: Do not persist messages (loaded from backend), limit open tabs to reasonable number, handle streaming message updates efficiently | _Leverage: design.md "useMessageStore" and "useTabStore" interfaces | _Requirements: REQ-4 (Chat Interface), REQ-5 (Document Viewer tabs) | Success: Messages can be added/updated, tabs open/close, streaming updates work | Instructions: 1) Run spec-workflow-guide 2) Mark in-progress 3) Implement stores 4) Log implementation 5) Mark complete_
 
-- [ ] 4.5 Implement useWebSocket hook
+- [x] 4.5 Implement useWebSocket hook
   - Files: `frontend/src/hooks/useWebSocket.ts`
   - Create WebSocket connection with auth token
   - Implement reconnection with exponential backoff
@@ -247,7 +247,7 @@
   - _Requirements: REQ-4 (real-time streaming), Non-functional (Reliability)_
   - _Prompt: Implement the task for spec qomplex-mvp, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Frontend Developer specializing in real-time communication | Task: Create useWebSocket hook with connection management. Connect with JWT token in query string. Implement exponential backoff reconnection (1s, 2s, 4s... max 30s) per design.md. Queue messages during disconnect, send on reconnect. Parse incoming messages by type | Restrictions: Auto-reconnect only on abnormal close, clear queue on intentional disconnect, do not reconnect if token invalid | _Leverage: clipendra-repo useWebSocket.ts hook implementation | _Requirements: REQ-4 (WebSocket streaming, reconnection) | Success: Connection established with auth, reconnects on disconnect, messages sent/received | Instructions: 1) Run spec-workflow-guide 2) Mark in-progress 3) Implement hook 4) Log implementation 5) Mark complete_
 
-- [ ] 4.6 Create API utility functions
+- [x] 4.6 Create API utility functions
   - Files: `frontend/src/lib/api.ts`
   - Create fetch wrapper with auth header
   - Handle 401 responses (redirect to login)
@@ -259,7 +259,7 @@
 
 ## Phase 5: UI Components
 
-- [ ] 5.1 Create LoginPage and RegisterPage
+- [x] 5.1 Create LoginPage and RegisterPage
   - Files: `frontend/src/pages/LoginPage.tsx`, `frontend/src/pages/RegisterPage.tsx`
   - Create login form with email/password
   - Create register form with validation
@@ -269,7 +269,7 @@
   - _Requirements: REQ-1 (User Authentication)_
   - _Prompt: Implement the task for spec qomplex-mvp, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Frontend Developer specializing in forms and UX | Task: Create LoginPage and RegisterPage with email/password forms. Use useAuthStore for actions. Show loading spinner during submission, display error messages clearly. Add link to switch between login/register. Mobile-friendly with 44px touch targets | Restrictions: Do not add social login buttons, validate email format client-side, minimum password 8 chars with feedback | _Leverage: TailwindCSS form styling patterns | _Requirements: REQ-1 (User Authentication) | Success: Forms submit correctly, errors displayed, navigation between pages works | Instructions: 1) Run spec-workflow-guide 2) Mark in-progress 3) Create pages 4) Log implementation 5) Mark complete_
 
-- [ ] 5.2 Create MainLayout with responsive design
+- [x] 5.2 Create MainLayout with responsive design
   - Files: `frontend/src/components/MainLayout.tsx`
   - Implement mobile layout (full-screen views)
   - Implement desktop layout (sidebar + main area)
@@ -279,7 +279,7 @@
   - _Requirements: REQ-6 (Mobile-First Responsive UI)_
   - _Prompt: Implement the task for spec qomplex-mvp, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Frontend Developer specializing in responsive design | Task: Create MainLayout following design.md interface. Desktop (>=1024px): sidebar with project selector and agent list, main content area. Mobile (<1024px): full-screen views with navigation. Use CSS media queries or Tailwind responsive classes | Restrictions: Mobile layout must be default (mobile-first), no layout shift on resize, sidebar width 280px on desktop | _Leverage: clipendra-repo TelegramLayout.tsx pattern, bolt_ai_front layout patterns | _Requirements: REQ-6 (Mobile-First Responsive UI) | Success: Layout switches at 1024px, mobile shows single panel, desktop shows sidebar+content | Instructions: 1) Run spec-workflow-guide 2) Mark in-progress 3) Create component 4) Log implementation 5) Mark complete_
 
-- [ ] 5.3 Create ProjectSelector component
+- [x] 5.3 Create ProjectSelector component
   - Files: `frontend/src/components/ProjectSelector.tsx`
   - Dropdown for selecting active project
   - "New Project" button
@@ -289,7 +289,7 @@
   - _Requirements: REQ-2 (Project Management)_
   - _Prompt: Implement the task for spec qomplex-mvp, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Frontend Developer specializing in dropdown components | Task: Create ProjectSelector following design.md interface. Show current project name in trigger button. Dropdown lists all projects with path tooltips. "New Project" option at bottom opens DirectoryBrowser. Handle empty state | Restrictions: Do not allow deselecting all projects, show loading state while fetching, truncate long names with ellipsis | _Leverage: design.md "ProjectSelector" interface | _Requirements: REQ-2 (Project Management) | Success: Projects selectable, new project triggers DirectoryBrowser, current project highlighted | Instructions: 1) Run spec-workflow-guide 2) Mark in-progress 3) Create component 4) Log implementation 5) Mark complete_
 
-- [ ] 5.4 Create DirectoryBrowser modal
+- [x] 5.4 Create DirectoryBrowser modal
   - Files: `frontend/src/components/DirectoryBrowser.tsx`
   - Modal for browsing server filesystem
   - Breadcrumb navigation
@@ -300,7 +300,7 @@
   - _Requirements: REQ-2 (DirectoryBrowser modal)_
   - _Prompt: Implement the task for spec qomplex-mvp, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Frontend Developer specializing in file browsers and modals | Task: Create DirectoryBrowser following design.md interface. Adapt clipendra-repo DirectoryBrowser component. Show breadcrumb path, list directories, "Select" button for current path. Start at /home. Mobile-friendly touch targets | Restrictions: Only show directories (not files), prevent navigation above /home, show loading during navigation | _Leverage: clipendra-repo DirectoryBrowser.tsx - adapt for Qomplex auth context | _Requirements: REQ-2 (DirectoryBrowser modal with breadcrumb navigation) | Success: Directory browsing works, selection returns path, breadcrumbs navigate correctly | Instructions: 1) Run spec-workflow-guide 2) Mark in-progress 3) Create component 4) Log implementation 5) Mark complete_
 
-- [ ] 5.5 Create AgentList component
+- [x] 5.5 Create AgentList component
   - Files: `frontend/src/components/AgentList.tsx`
   - List agents for current project
   - Show agent name and status indicator
@@ -310,7 +310,7 @@
   - _Requirements: REQ-3 (Agent Management)_
   - _Prompt: Implement the task for spec qomplex-mvp, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Frontend Developer specializing in list components | Task: Create AgentList following design.md interface. Show all agents for current project. Highlight selected agent. Settings icon button on each row. "Create Agent" button at bottom. Touch-friendly 44px row height | Restrictions: Do not show agents from other projects, handle empty state gracefully, settings icon should not trigger agent selection | _Leverage: design.md "AgentList" interface, clipendra-repo ChatListPanel pattern | _Requirements: REQ-3 (Agent Management) | Success: Agents displayed, selection works, settings accessible, create agent works | Instructions: 1) Run spec-workflow-guide 2) Mark in-progress 3) Create component 4) Log implementation 5) Mark complete_
 
-- [ ] 5.6 Create AgentSettingsPanel component
+- [x] 5.6 Create AgentSettingsPanel component
   - Files: `frontend/src/components/AgentSettingsPanel.tsx`
   - Edit agent name (input)
   - Edit system prompt (textarea, max 10000 chars)
@@ -321,7 +321,7 @@
   - _Requirements: REQ-3 (Agent configuration)_
   - _Prompt: Implement the task for spec qomplex-mvp, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Frontend Developer specializing in form components | Task: Create AgentSettingsPanel following design.md interface. Slide-in panel or modal with form fields: name (input), system_prompt (textarea with char counter), linked_md_files (list with add button that opens file picker). Save calls updateAgent API | Restrictions: Validate system_prompt <= 10000 chars, show unsaved changes warning on cancel, disable save button while saving | _Leverage: design.md "AgentSettingsPanel" interface | _Requirements: REQ-3 (Agent settings with editable name, prompt, linked files) | Success: All fields editable, validation works, save persists changes | Instructions: 1) Run spec-workflow-guide 2) Mark in-progress 3) Create component 4) Log implementation 5) Mark complete_
 
-- [ ] 5.7 Create ChatPanel and MessageBubble components
+- [x] 5.7 Create ChatPanel and MessageBubble components
   - Files: `frontend/src/components/ChatPanel.tsx`, `frontend/src/components/MessageBubble.tsx`
   - Message list with virtual scrolling consideration
   - Telegram-style message bubbles
@@ -332,7 +332,7 @@
   - _Requirements: REQ-4 (Chat Interface)_
   - _Prompt: Implement the task for spec qomplex-mvp, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Frontend Developer specializing in chat interfaces | Task: Create ChatPanel following design.md interface. MessageBubble with Telegram-style alignment (user right, assistant left). Use react-markdown for rendering with syntax highlighting. Input at bottom with send button. Show typing indicator during streaming | Restrictions: Auto-scroll to bottom on new messages, handle long messages gracefully, mobile keyboard should not cover input | _Leverage: clipendra-repo ChatPanel.tsx and MessageBubble.tsx | _Requirements: REQ-4 (Chat Interface with message history, streaming display) | Success: Messages render correctly, markdown works, streaming visible, input functional | Instructions: 1) Run spec-workflow-guide 2) Mark in-progress 3) Create components 4) Log implementation 5) Mark complete_
 
-- [ ] 5.8 Create ToolUsageDisplay component
+- [x] 5.8 Create ToolUsageDisplay component
   - Files: `frontend/src/components/ToolUsageDisplay.tsx`
   - Display tool_use events in chat
   - Collapsible tool output
@@ -342,7 +342,7 @@
   - _Requirements: REQ-4 (show tool usage in chat)_
   - _Prompt: Implement the task for spec qomplex-mvp, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Frontend Developer specializing in data visualization | Task: Create ToolUsageDisplay component for showing tool_use and tool_result events in chat. Collapsible sections with tool name, input, and output. Different icons/colors for Read, Write, Bash, Edit tools. Show file paths clearly | Restrictions: Collapse output by default for large results, syntax highlight code in tool results, handle missing tool results gracefully | _Leverage: clipendra-repo tool usage display patterns | _Requirements: REQ-4 (show tool usage in chat) | Success: Tool usage displayed clearly, collapsible, different tools distinguished | Instructions: 1) Run spec-workflow-guide 2) Mark in-progress 3) Create component 4) Log implementation 5) Mark complete_
 
-- [ ] 5.9 Create TokenUsageIndicator component
+- [x] 5.9 Create TokenUsageIndicator component
   - Files: `frontend/src/components/TokenUsageIndicator.tsx`
   - Display input/output tokens for message
   - Show total session tokens
@@ -353,7 +353,7 @@
   - _Requirements: REQ-7 (Token Usage Monitoring)_
   - _Prompt: Implement the task for spec qomplex-mvp, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Frontend Developer specializing in data display | Task: Create TokenUsageIndicator following design.md interface. Show compact token count (e.g., "12.5K tokens"). Yellow warning when >= 120K. Hover/tap shows tooltip with input tokens, output tokens, cost. Progress bar optional | Restrictions: Format large numbers nicely (K suffix), warning threshold from props (default 120000), tooltip should work on mobile (tap) | _Leverage: design.md "TokenUsageIndicator" interface | _Requirements: REQ-7 (Token Usage Monitoring with warning at 120K) | Success: Tokens displayed, warning state works, tooltip shows breakdown | Instructions: 1) Run spec-workflow-guide 2) Mark in-progress 3) Create component 4) Log implementation 5) Mark complete_
 
-- [ ] 5.10 Create DocViewer component
+- [x] 5.10 Create DocViewer component
   - Files: `frontend/src/components/DocViewer.tsx`
   - Render markdown with react-markdown
   - GitHub-flavored markdown support
@@ -363,7 +363,7 @@
   - _Requirements: REQ-5 (Markdown Document Viewer)_
   - _Prompt: Implement the task for spec qomplex-mvp, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Frontend Developer specializing in document rendering | Task: Create DocViewer following design.md interface. Use react-markdown with remark-gfm for GitHub-flavored markdown. Add rehype-highlight for syntax highlighting. Handle proper heading hierarchy. Show filename in header | Restrictions: Do not allow editing (view only), handle missing/empty content gracefully, use consistent code block styling | _Leverage: design.md "DocViewer" interface, design.md Technical Notes for libraries | _Requirements: REQ-5 (Markdown Document Viewer with GFM and syntax highlighting) | Success: Markdown renders correctly, code highlighted, GFM features work | Instructions: 1) Run spec-workflow-guide 2) Mark in-progress 3) Create component 4) Log implementation 5) Mark complete_
 
-- [ ] 5.11 Create MobileTabSwitcher component
+- [x] 5.11 Create MobileTabSwitcher component
   - Files: `frontend/src/components/MobileTabSwitcher.tsx`
   - Bottom sheet for tab selection on mobile
   - Show open agent chats and docs
@@ -373,7 +373,7 @@
   - _Requirements: REQ-6 (Mobile tab switching), REQ-5 (swipeable doc tabs)_
   - _Prompt: Implement the task for spec qomplex-mvp, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Frontend Developer specializing in mobile UX | Task: Create MobileTabSwitcher following design.md interface. Bottom sheet that slides up showing open tabs. Tab items show agent name or doc filename. Swipe left to close tab. Tap to switch. Different icons for chat vs doc tabs | Restrictions: Sheet should not block too much content, smooth animations, handle many tabs with scroll | _Leverage: bolt_ai_front MobileTabSwitcher.tsx | _Requirements: REQ-6 (Mobile tab switching), REQ-5 (swipeable doc tabs) | Success: Tab sheet opens/closes, tabs selectable, close gesture works | Instructions: 1) Run spec-workflow-guide 2) Mark in-progress 3) Create component 4) Log implementation 5) Mark complete_
 
-- [ ] 5.12 Create MobileHeader component
+- [x] 5.12 Create MobileHeader component
   - Files: `frontend/src/components/MobileHeader.tsx`
   - Back button for navigation
   - Current agent/doc name

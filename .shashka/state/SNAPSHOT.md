@@ -1,5 +1,5 @@
 # Project Snapshot
-**Last Updated:** 2025-12-01
+**Last Updated:** 2025-12-02
 
 ## Overview
 
@@ -7,9 +7,9 @@
 |-------|-------|
 | **Project** | Qomplex |
 | **Type** | Web interface for Claude Code CLI |
-| **Status** | Phase 3 completed, Phase 4 pending |
+| **Status** | Phase 5 completed, Phase 6 pending |
 | **Repository** | https://github.com/alienxs2/qomplex |
-| **Progress** | 18/49 tasks (37%) |
+| **Progress** | 36/49 tasks (73%) |
 
 ## Architecture
 
@@ -54,19 +54,39 @@ User -> Projects -> Agents -> Claude Code CLI
 - [x] 3.4 WebSocket message handler for chat
 - [x] 3.5 WebSocket reconnection and error handling
 
+#### Phase 4: Frontend Core (6/6 tasks)
+- [x] 4.1 Create React app entry point and router
+- [x] 4.2 Implement useAuthStore with Zustand
+- [x] 4.3 Implement useProjectStore and useAgentStore
+- [x] 4.4 Implement useMessageStore and useTabStore
+- [x] 4.5 Implement useWebSocket hook
+- [x] 4.6 Create API utility functions
+
+#### Phase 5: UI Components (12/12 tasks)
+- [x] 5.1 Create LoginPage and RegisterPage
+- [x] 5.2 Create MainLayout with responsive design
+- [x] 5.3 Create ProjectSelector component
+- [x] 5.4 Create DirectoryBrowser modal
+- [x] 5.5 Create AgentList component
+- [x] 5.6 Create AgentSettingsPanel component
+- [x] 5.7 Create ChatPanel and MessageBubble
+- [x] 5.8 Create ToolUsageDisplay
+- [x] 5.9 Create TokenUsageIndicator
+- [x] 5.10 Create DocViewer
+- [x] 5.11 Create MobileTabSwitcher
+- [x] 5.12 Create MobileHeader
+
 ### Next Steps
 
-#### Phase 4: Frontend Core (0/6 tasks)
-- [ ] 4.1 Create React app entry point and router
-- [ ] 4.2 Implement useAuthStore with Zustand
-- [ ] 4.3 Implement useProjectStore and useAgentStore
-- [ ] 4.4 Implement useMessageStore and useTabStore
-- [ ] 4.5 Implement useWebSocket hook
-- [ ] 4.6 Create API utility functions
+#### Phase 6: Integration (0/6 tasks)
+- [ ] 6.1 Connect ChatPanel to WebSocket for streaming
+- [ ] 6.2 Integrate DirectoryBrowser with project creation
+- [ ] 6.3 Integrate AgentSettings with backend updates
+- [ ] 6.4 Integrate DocViewer with linked MD files
+- [ ] 6.5 Integrate session resume with chat history
+- [ ] 6.6 Implement mobile navigation flow
 
 ### Remaining Phases
-- Phase 5: UI Components (0/12 tasks)
-- Phase 6: Integration (0/6 tasks)
 - Phase 7: Testing & Polish (0/7 tasks)
 
 ## Key Decisions
