@@ -385,7 +385,7 @@
 
 ## Phase 6: Integration
 
-- [ ] 6.1 Connect ChatPanel to WebSocket for streaming
+- [x] 6.1 Connect ChatPanel to WebSocket for streaming
   - Files: `frontend/src/components/ChatPanel.tsx` (extend), `frontend/src/pages/ChatPage.tsx`
   - Connect useWebSocket to ChatPanel
   - Handle stream events to update messages
@@ -395,7 +395,7 @@
   - _Requirements: REQ-4 (real-time streaming)_
   - _Prompt: Implement the task for spec qomplex-mvp, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Frontend Developer specializing in real-time integrations | Task: Connect ChatPanel to useWebSocket. On send message, emit 'query' WebSocket message. Handle 'stream' events to update last message content. Handle 'complete' to show token usage. Handle 'error' to show error message. Create ChatPage wrapper | Restrictions: Show typing indicator during streaming, disable input while waiting for response, handle disconnect gracefully | _Leverage: clipendra-repo chat WebSocket integration pattern | _Requirements: REQ-4 (Stream response in real-time via WebSocket) | Success: Messages send via WebSocket, responses stream, completion shows tokens | Instructions: 1) Run spec-workflow-guide 2) Mark in-progress 3) Integrate WebSocket 4) Log implementation 5) Mark complete_
 
-- [ ] 6.2 Integrate DirectoryBrowser with project creation
+- [x] 6.2 Integrate DirectoryBrowser with project creation
   - Files: `frontend/src/components/ProjectSelector.tsx` (extend)
   - Open DirectoryBrowser on "New Project"
   - Call createProject with selected path
@@ -405,7 +405,7 @@
   - _Requirements: REQ-2 (DirectoryBrowser creates project)_
   - _Prompt: Implement the task for spec qomplex-mvp, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Frontend Developer specializing in component integration | Task: Integrate DirectoryBrowser with ProjectSelector. When "New Project" clicked, open DirectoryBrowser modal. On path selection, call projectStore.createProject. Handle success (select new project) and error (show message for duplicate). Close modal on complete | Restrictions: Validate path selected before submit, show loading during creation, handle 409 conflict with user-friendly message | _Leverage: design.md project creation flow, REQ-2 acceptance criteria | _Requirements: REQ-2 (DirectoryBrowser creates project with selected path) | Success: Full flow works: open browser -> select path -> create project -> project selected | Instructions: 1) Run spec-workflow-guide 2) Mark in-progress 3) Integrate components 4) Log implementation 5) Mark complete_
 
-- [ ] 6.3 Integrate AgentSettings with backend updates
+- [x] 6.3 Integrate AgentSettings with backend updates
   - Files: `frontend/src/components/AgentSettingsPanel.tsx` (extend)
   - Connect save to agentStore.updateAgent
   - Load linked MD files via file API
@@ -415,7 +415,7 @@
   - _Requirements: REQ-3 (Agent configuration saves)_
   - _Prompt: Implement the task for spec qomplex-mvp, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Frontend Developer specializing in form state management | Task: Connect AgentSettingsPanel to agentStore. Save button calls updateAgent with form data. For adding linked MD files, open file browser filtered to *.md. Show save success feedback. Handle validation errors from backend | Restrictions: Debounce system_prompt validation, confirm before discarding unsaved changes, update local agent state on success | _Leverage: design.md agent update API | _Requirements: REQ-3 (Agent configuration with editable fields) | Success: Settings save to backend, linked files manageable, feedback shown | Instructions: 1) Run spec-workflow-guide 2) Mark in-progress 3) Integrate settings 4) Log implementation 5) Mark complete_
 
-- [ ] 6.4 Integrate DocViewer with linked MD files
+- [x] 6.4 Integrate DocViewer with linked MD files
   - Files: `frontend/src/pages/DocViewerPage.tsx`
   - Load MD file content via file API
   - Open in tab from agent settings
@@ -425,7 +425,7 @@
   - _Requirements: REQ-5 (View linked MD files)_
   - _Prompt: Implement the task for spec qomplex-mvp, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Frontend Developer specializing in content loading | Task: Create DocViewerPage that loads MD file content from /api/files/read. Integrate with tab system - clicking linked file in agent settings opens doc tab. Handle loading, error (file not found), and empty states. Show filename in tab and header | Restrictions: Cache loaded content in tab store, handle large files gracefully, show loading skeleton while fetching | _Leverage: design.md file read API endpoint | _Requirements: REQ-5 (View linked MD files in viewer tab) | Success: MD files load and display, tabs work, errors handled | Instructions: 1) Run spec-workflow-guide 2) Mark in-progress 3) Create doc viewer page 4) Log implementation 5) Mark complete_
 
-- [ ] 6.5 Integrate session resume with chat history
+- [x] 6.5 Integrate session resume with chat history
   - Files: `frontend/src/pages/ChatPage.tsx` (extend)
   - Load chat history on agent selection
   - Pass session_id for --resume
@@ -435,7 +435,7 @@
   - _Requirements: REQ-8 (Session Persistence)_
   - _Prompt: Implement the task for spec qomplex-mvp, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Frontend Developer specializing in state management | Task: When agent selected, check if agent has session_id. If yes, load history from transcript API (or display from local cache). Pass session_id with WebSocket query for --resume. Handle "Start New Session" button that clears session_id | Restrictions: Show loading while fetching history, handle missing transcripts gracefully, differentiate new vs resumed session in UI | _Leverage: design.md session resume flow, REQ-8 acceptance criteria | _Requirements: REQ-8 (Resume with --resume <session_id>, load history) | Success: History loads for existing sessions, new sessions start fresh, resume works | Instructions: 1) Run spec-workflow-guide 2) Mark in-progress 3) Implement session resume 4) Log implementation 5) Mark complete_
 
-- [ ] 6.6 Implement mobile navigation flow
+- [x] 6.6 Implement mobile navigation flow
   - Files: `frontend/src/App.tsx` (extend), `frontend/src/components/MainLayout.tsx` (extend)
   - Swipe between open tabs
   - Back button navigation
@@ -447,7 +447,7 @@
 
 ## Phase 7: Testing & Polish
 
-- [ ] 7.1 Add backend unit tests for services
+- [x] 7.1 Add backend unit tests for services
   - Files: `backend/src/services/*.test.ts`
   - Test AuthService (register, login, verify)
   - Test ProjectService CRUD
@@ -457,7 +457,7 @@
   - _Requirements: Non-functional (Testing - 70% coverage for services)_
   - _Prompt: Implement the task for spec qomplex-mvp, first run spec-workflow-guide to get the workflow guide then implement the task: Role: QA Engineer specializing in unit testing | Task: Create unit tests for backend services using Vitest. Test AuthService (register creates user, login returns token, verify validates token). Test ProjectService (CRUD, duplicate path rejection). Test AgentService (default agent creation, update). Mock database calls | Restrictions: Use Vitest not Jest, mock external dependencies, test both success and error paths, aim for 70% coverage | _Leverage: Vitest testing patterns | _Requirements: Non-functional (Testing - 70% coverage for services) | Success: All service methods tested, mocks work, 70%+ coverage | Instructions: 1) Run spec-workflow-guide 2) Mark in-progress 3) Write tests 4) Log implementation 5) Mark complete_
 
-- [ ] 7.2 Add frontend component tests
+- [x] 7.2 Add frontend component tests
   - Files: `frontend/src/components/*.test.tsx`
   - Test key components with React Testing Library
   - Test store actions with Vitest
@@ -467,7 +467,7 @@
   - _Requirements: Non-functional (Testing - 50% coverage for components)_
   - _Prompt: Implement the task for spec qomplex-mvp, first run spec-workflow-guide to get the workflow guide then implement the task: Role: QA Engineer specializing in React testing | Task: Create component tests using Vitest and React Testing Library. Test LoginPage (form submission, validation errors). Test ProjectSelector (project selection, new project). Test ChatPanel (message display, input). Test Zustand stores (actions, state transitions) | Restrictions: Use jsdom environment, mock API calls, test user interactions not implementation details, aim for 50% coverage | _Leverage: React Testing Library patterns | _Requirements: Non-functional (Testing - 50% coverage for components) | Success: Key components tested, stores tested, 50%+ coverage | Instructions: 1) Run spec-workflow-guide 2) Mark in-progress 3) Write tests 4) Log implementation 5) Mark complete_
 
-- [ ] 7.3 Add API integration tests
+- [x] 7.3 Add API integration tests
   - Files: `backend/src/routes/*.test.ts`
   - Test auth flow (register -> login -> me)
   - Test project/agent CRUD flow
@@ -477,7 +477,7 @@
   - _Requirements: Non-functional (Testing)_
   - _Prompt: Implement the task for spec qomplex-mvp, first run spec-workflow-guide to get the workflow guide then implement the task: Role: QA Engineer specializing in API testing | Task: Create integration tests for API routes using supertest and Vitest. Test full auth flow (register user, login, access protected route). Test project CRUD with auth. Test agent CRUD. Test file browse path security (reject .., reject outside /home) | Restrictions: Use test database (or mock), clean up test data, test auth rejection (401), test validation errors (400) | _Leverage: supertest for HTTP testing | _Requirements: Non-functional (Testing) | Success: All API flows tested, auth required enforced, security validated | Instructions: 1) Run spec-workflow-guide 2) Mark in-progress 3) Write integration tests 4) Log implementation 5) Mark complete_
 
-- [ ] 7.4 Add comprehensive error handling
+- [x] 7.4 Add comprehensive error handling
   - Files: Multiple frontend/backend files
   - Add React error boundaries
   - Improve error messages for all error scenarios
@@ -487,7 +487,7 @@
   - _Requirements: Non-functional (Reliability, Usability)_
   - _Prompt: Implement the task for spec qomplex-mvp, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Full-stack Developer specializing in error handling | Task: Implement comprehensive error handling per design.md Error Handling section. Add React ErrorBoundary at app root. Create user-friendly error display components. Handle all error scenarios: CLI not authenticated, terms required, WebSocket disconnect, timeout, token limit, invalid JWT, path conflict | Restrictions: Never expose internal errors to users, log errors with context, show actionable messages, maintain app stability on errors | _Leverage: design.md "Error Handling" section for all scenarios | _Requirements: Non-functional (Reliability, Usability - clear error messages) | Success: All error scenarios handled gracefully, messages helpful, app doesn't crash | Instructions: 1) Run spec-workflow-guide 2) Mark in-progress 3) Implement error handling 4) Log implementation 5) Mark complete_
 
-- [ ] 7.5 Add loading states and skeletons
+- [x] 7.5 Add loading states and skeletons
   - Files: Multiple frontend files
   - Add loading skeletons for lists
   - Add spinners for async actions
@@ -497,7 +497,7 @@
   - _Requirements: Non-functional (Usability - loading states)_
   - _Prompt: Implement the task for spec qomplex-mvp, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Frontend Developer specializing in UX | Task: Add loading states throughout the app. Create skeleton components for AgentList, MessageList. Add spinners for form submissions, API calls. Show reconnecting indicator for WebSocket. Ensure all async operations have visual feedback | Restrictions: Skeletons should match final layout, avoid layout shift, spinners should be subtle, don't block interaction unnecessarily | _Leverage: TailwindCSS animation utilities for skeletons | _Requirements: Non-functional (Usability - loading states for all async operations) | Success: All async operations show loading state, skeletons look good, no layout shift | Instructions: 1) Run spec-workflow-guide 2) Mark in-progress 3) Add loading states 4) Log implementation 5) Mark complete_
 
-- [ ] 7.6 PWA configuration and manifest
+- [x] 7.6 PWA configuration and manifest
   - Files: `frontend/public/manifest.json`, `frontend/src/sw.ts`, `frontend/index.html`
   - Create PWA manifest with app info
   - Add service worker for offline shell
@@ -507,7 +507,7 @@
   - _Requirements: REQ-6 (PWA support)_
   - _Prompt: Implement the task for spec qomplex-mvp, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Frontend Developer specializing in PWA | Task: Configure PWA for Qomplex. Create manifest.json with app name, icons (192x192, 512x512), theme color, background color. Register service worker for offline app shell caching. Add meta tags to index.html for PWA. Use vite-plugin-pwa if helpful | Restrictions: Offline mode is out of scope - just cache app shell, do not cache API responses, test on mobile devices | _Leverage: PWA best practices, vite-plugin-pwa | _Requirements: REQ-6 (PWA - work as standalone app) | Success: App installable on mobile, opens in standalone mode, icons display correctly | Instructions: 1) Run spec-workflow-guide 2) Mark in-progress 3) Configure PWA 4) Log implementation 5) Mark complete_
 
-- [ ] 7.7 Final cleanup and documentation
+- [x] 7.7 Final cleanup and documentation
   - Files: `README.md`, inline code comments
   - Add README with setup instructions
   - Add code comments for complex logic

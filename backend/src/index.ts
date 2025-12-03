@@ -66,6 +66,8 @@ async function start(): Promise<void> {
       logger.info('  GET    /api/agents/:id');
       logger.info('  PUT    /api/agents/:id');
       logger.info('  DELETE /api/agents/:id');
+      logger.info('  GET    /api/agents/:id/transcript');
+      logger.info('  POST   /api/agents/:id/clear-session');
       logger.info('  GET    /api/browse');
       logger.info('  GET    /api/files/read');
       logger.info('  WS     /ws (WebSocket with JWT auth)');

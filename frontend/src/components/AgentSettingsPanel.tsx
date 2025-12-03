@@ -1,7 +1,13 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { Agent } from '@shared/types';
 import { useAgentStore } from '../store/agentStore';
+import { useTabStore, createDocTab } from '../store/tabStore';
 import { api } from '../lib/api';
+
+/**
+ * Debounce delay for system prompt validation (ms)
+ */
+const DEBOUNCE_DELAY = 500;
 
 /**
  * Maximum characters allowed for system prompt
@@ -72,9 +78,17 @@ export function AgentSettingsPanel({
   const [error, setError] = useState<string | null>(null);
   const [showFilePicker, setShowFilePicker] = useState(false);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
+  const [showSuccessFeedback, setShowSuccessFeedback] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  // Debounce timer ref for system prompt validation
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Get updateAgent from store
   const updateAgent = useAgentStore((state) => state.updateAgent);
+
+  // Get openTab from tab store
+  const openTab = useTabStore((state) => state.openTab);
 
   /**
    * Reset form when agent changes
@@ -84,7 +98,54 @@ export function AgentSettingsPanel({
     setSystemPrompt(agent.system_prompt);
     setLinkedMdFiles(agent.linked_md_files || []);
     setError(null);
+    setValidationError(null);
+    setShowSuccessFeedback(false);
   }, [agent]);
+
+  /**
+   * Cleanup debounce timer on unmount
+   */
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
+
+  /**
+   * Debounced system prompt validation
+   * Validates length after user stops typing
+   */
+  const validateSystemPromptDebounced = useCallback((prompt: string) => {
+    // Clear any existing timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    // Set new debounced validation
+    debounceTimerRef.current = setTimeout(() => {
+      if (prompt.length > MAX_SYSTEM_PROMPT_LENGTH) {
+        setValidationError(
+          `System prompt exceeds maximum length of ${MAX_SYSTEM_PROMPT_LENGTH.toLocaleString()} characters`
+        );
+      } else {
+        setValidationError(null);
+      }
+    }, DEBOUNCE_DELAY);
+  }, []);
+
+  /**
+   * Handle system prompt change with debounced validation
+   */
+  const handleSystemPromptChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const newValue = e.target.value;
+      setSystemPrompt(newValue);
+      validateSystemPromptDebounced(newValue);
+    },
+    [validateSystemPromptDebounced]
+  );
 
   /**
    * Check if form has unsaved changes
@@ -112,8 +173,9 @@ export function AgentSettingsPanel({
 
   /**
    * Validate form
+   * Considers both immediate validation and debounced validation errors
    */
-  const isFormValid = name.trim().length > 0 && isSystemPromptValid;
+  const isFormValid = name.trim().length > 0 && isSystemPromptValid && !validationError;
 
   /**
    * Character count for system prompt
@@ -128,12 +190,15 @@ export function AgentSettingsPanel({
 
   /**
    * Handle save button click
+   * Saves agent settings to backend via agentStore.updateAgent
+   * Shows success feedback or validation errors from backend
    */
   const handleSave = useCallback(async () => {
     if (!isFormValid || isSaving) return;
 
     setIsSaving(true);
     setError(null);
+    setShowSuccessFeedback(false);
 
     try {
       await updateAgent(agent.id, {
@@ -142,16 +207,38 @@ export function AgentSettingsPanel({
         linked_md_files: linkedMdFiles,
       });
 
+      // Update local state via callback
       onSave({
         name: name.trim(),
         system_prompt: systemPrompt,
         linked_md_files: linkedMdFiles,
       });
 
-      onClose();
+      // Show success feedback before closing
+      setShowSuccessFeedback(true);
+
+      // Auto-close after brief success feedback
+      setTimeout(() => {
+        onClose();
+      }, 1000);
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to save agent settings';
+      // Parse validation errors from backend
+      let message = 'Failed to save agent settings';
+
+      if (err instanceof Error) {
+        message = err.message;
+
+        // Check for common validation errors from backend
+        if (message.includes('system_prompt')) {
+          setValidationError(message);
+        } else if (message.includes('name')) {
+          // Name validation error
+          message = 'Agent name is invalid or already exists';
+        } else if (message.includes('linked_md_files')) {
+          message = 'One or more linked files are invalid';
+        }
+      }
+
       setError(message);
     } finally {
       setIsSaving(false);
@@ -212,6 +299,16 @@ export function AgentSettingsPanel({
     });
     setShowFilePicker(false);
   }, []);
+
+  /**
+   * Handle clicking on a linked file to open it in a doc tab
+   */
+  const handleOpenFile = useCallback((filePath: string) => {
+    const tab = createDocTab(filePath);
+    openTab(tab);
+    // Close the settings panel after opening the file
+    onClose();
+  }, [openTab, onClose]);
 
   /**
    * Handle backdrop click to close
@@ -299,9 +396,42 @@ export function AgentSettingsPanel({
 
         {/* Form Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
+          {/* Success Feedback */}
+          {showSuccessFeedback && (
+            <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+              <svg
+                className="w-5 h-5 text-green-500 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+              <p className="text-sm text-green-700">Agent settings saved successfully!</p>
+            </div>
+          )}
+
           {/* Error Display */}
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+              <svg
+                className="w-5 h-5 text-red-500 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
               <p className="text-sm text-red-700">{error}</p>
             </div>
           )}
@@ -348,19 +478,19 @@ export function AgentSettingsPanel({
             <textarea
               id="system-prompt"
               value={systemPrompt}
-              onChange={(e) => setSystemPrompt(e.target.value)}
+              onChange={handleSystemPromptChange}
               placeholder="Enter system prompt for this agent..."
               rows={8}
               className={`
                 w-full px-3 py-2 border rounded-lg transition-colors resize-y min-h-[120px]
                 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
-                ${!isSystemPromptValid ? 'border-red-300' : 'border-gray-300'}
+                ${!isSystemPromptValid || validationError ? 'border-red-300' : 'border-gray-300'}
               `}
               disabled={isSaving}
             />
-            {!isSystemPromptValid && (
+            {(!isSystemPromptValid || validationError) && (
               <p className="mt-1 text-xs text-red-500">
-                System prompt exceeds maximum length of {MAX_SYSTEM_PROMPT_LENGTH.toLocaleString()} characters
+                {validationError || `System prompt exceeds maximum length of ${MAX_SYSTEM_PROMPT_LENGTH.toLocaleString()} characters`}
               </p>
             )}
           </div>
@@ -444,15 +574,19 @@ export function AgentSettingsPanel({
                       </svg>
                     </div>
 
-                    {/* File Info */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
+                    {/* File Info - clickable to open in doc viewer */}
+                    <button
+                      onClick={() => handleOpenFile(filePath)}
+                      className="flex-1 min-w-0 text-left hover:bg-blue-50 rounded-lg p-1 -m-1 transition-colors group"
+                      title="Click to open in document viewer"
+                    >
+                      <p className="text-sm font-medium text-gray-900 truncate group-hover:text-primary-600">
                         {getFileName(filePath)}
                       </p>
                       <p className="text-xs text-gray-400 truncate">
                         {filePath}
                       </p>
-                    </div>
+                    </button>
 
                     {/* Remove Button */}
                     <button
@@ -506,13 +640,15 @@ export function AgentSettingsPanel({
           </button>
           <button
             onClick={handleSave}
-            disabled={!isFormValid || isSaving}
+            disabled={!isFormValid || isSaving || showSuccessFeedback}
             className={`
               flex-1 py-2.5 px-4 rounded-lg font-medium transition-colors min-h-[44px]
               flex items-center justify-center gap-2
-              ${!isFormValid || isSaving
-                ? 'bg-primary-300 text-white cursor-not-allowed'
-                : 'bg-primary-600 text-white hover:bg-primary-700'
+              ${showSuccessFeedback
+                ? 'bg-green-500 text-white cursor-not-allowed'
+                : !isFormValid || isSaving
+                  ? 'bg-primary-300 text-white cursor-not-allowed'
+                  : 'bg-primary-600 text-white hover:bg-primary-700'
               }
             `}
           >
@@ -537,7 +673,22 @@ export function AgentSettingsPanel({
                 />
               </svg>
             )}
-            {isSaving ? 'Saving...' : 'Save Changes'}
+            {showSuccessFeedback && (
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+            )}
+            {showSuccessFeedback ? 'Saved!' : isSaving ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
       </div>

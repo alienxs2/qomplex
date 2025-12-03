@@ -65,6 +65,10 @@ export default {
         'slide-in-down': 'slideInDown 0.3s ease-out',
         'fade-in': 'fadeIn 0.2s ease-out',
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        // Skeleton loading animation - subtle shimmer effect
+        'skeleton': 'skeleton 1.5s ease-in-out infinite',
+        // Subtle spin for inline spinners
+        'spin-slow': 'spin 1.5s linear infinite',
       },
       keyframes: {
         slideInRight: {
@@ -86,6 +90,11 @@ export default {
         fadeIn: {
           '0%': { opacity: '0' },
           '100%': { opacity: '1' },
+        },
+        // Skeleton shimmer animation
+        skeleton: {
+          '0%': { backgroundPosition: '-200% 0' },
+          '100%': { backgroundPosition: '200% 0' },
         },
       },
       // Safe area insets for mobile devices

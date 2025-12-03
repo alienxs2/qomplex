@@ -12,8 +12,8 @@ COPY frontend/package.json ./frontend/
 COPY backend/package.json ./backend/
 COPY shared/package.json ./shared/
 
-# Install all dependencies
-RUN npm ci
+# Install all dependencies including concurrently
+RUN npm ci && npm install -g concurrently
 
 # Copy source files
 COPY . .
@@ -24,5 +24,5 @@ RUN npm run build --workspace=shared
 # Expose ports for backend and frontend dev server
 EXPOSE 3000 5173
 
-# Start development servers
-CMD ["npm", "run", "dev"]
+# Start both frontend and backend development servers in parallel
+CMD ["concurrently", "--kill-others", "--names", "BACK,FRONT", "-c", "blue,green", "npm run dev --workspace=backend", "npm run dev --workspace=frontend -- --host"]

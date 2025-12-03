@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Agent, UpdateAgentRequest, CreateAgentRequest } from '@shared/types';
+import type { Agent, UpdateAgentRequest, CreateAgentRequest, Message } from '@shared/types';
 import { getAuthToken } from './authStore';
 import { useProjectStore } from './projectStore';
 
@@ -7,6 +7,16 @@ import { useProjectStore } from './projectStore';
  * API base URL - uses same host with backend port
  */
 const API_BASE = `http://${window.location.hostname}:3000`;
+
+/**
+ * Transcript response from API
+ */
+interface TranscriptResponse {
+  success: boolean;
+  messages: Message[];
+  hasSession: boolean;
+  sessionId?: string;
+}
 
 /**
  * AgentState interface following design.md specification
@@ -25,6 +35,14 @@ interface AgentState {
   deleteAgent: (id: string) => Promise<void>;
   clearAgents: () => void;
   clearError: () => void;
+  /**
+   * REQ-8: Clear agent session to start fresh
+   */
+  clearAgentSession: (agentId: string) => Promise<void>;
+  /**
+   * REQ-8: Fetch transcript/history for an agent
+   */
+  fetchTranscript: (agentId: string) => Promise<TranscriptResponse>;
 }
 
 /**
@@ -268,6 +286,69 @@ export const useAgentStore = create<AgentState>()((set) => ({
    */
   clearError: () => {
     set({ error: null });
+  },
+
+  /**
+   * Clear agent session to start fresh (REQ-8)
+   * Calls POST /api/agents/:id/clear-session
+   */
+  clearAgentSession: async (agentId: string) => {
+    set({ isLoading: true, error: null });
+
+    try {
+      const response = await authFetch(`${API_BASE}/api/agents/${agentId}/clear-session`, {
+        method: 'POST',
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        throw new Error(responseData.error || 'Failed to clear session');
+      }
+
+      const updatedAgent: Agent = responseData.agent;
+
+      // Update the agent in the list and currentAgent
+      set((state) => ({
+        agents: state.agents.map(a => a.id === agentId ? updatedAgent : a),
+        currentAgent: state.currentAgent?.id === agentId ? updatedAgent : state.currentAgent,
+        isLoading: false,
+        error: null,
+      }));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to clear session';
+      set({
+        error: errorMessage,
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  /**
+   * Fetch transcript/history for an agent (REQ-8)
+   * Calls GET /api/agents/:id/transcript
+   */
+  fetchTranscript: async (agentId: string): Promise<TranscriptResponse> => {
+    try {
+      const response = await authFetch(`${API_BASE}/api/agents/${agentId}/transcript`);
+
+      if (!response.ok) {
+        const responseData = await response.json();
+        throw new Error(responseData.error || 'Failed to fetch transcript');
+      }
+
+      const data: TranscriptResponse = await response.json();
+      return data;
+    } catch (error) {
+      // Return empty response on error (graceful handling)
+      console.warn('[agentStore] Failed to fetch transcript:', error);
+      return {
+        success: false,
+        messages: [],
+        hasSession: false,
+      };
+    }
   },
 }));
 

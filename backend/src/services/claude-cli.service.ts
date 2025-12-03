@@ -124,8 +124,19 @@ export class ClaudeCliService {
   /**
    * Spawn Claude CLI process with streaming output
    *
-   * @param prompt - User's message/prompt
-   * @param options - CLI configuration options
+   * This is the core method that starts a new Claude CLI process. The process
+   * outputs NDJSON (newline-delimited JSON) events that we parse and stream
+   * to the WebSocket client.
+   *
+   * Flow:
+   * 1. Build CLI arguments from options (see buildArgs)
+   * 2. Spawn the 'claude' process with stdin/stdout/stderr pipes
+   * 3. Close stdin immediately (we use -p flag for prompt, not interactive mode)
+   * 4. Wait for the first 'system' event to extract session_id
+   * 5. Return the process and session_id for further streaming
+   *
+   * @param prompt - User's message/prompt to send to Claude
+   * @param options - CLI configuration options (cwd, resume, tools, etc.)
    * @returns Object with spawned process and extracted session ID
    */
   async spawnClaude(
@@ -136,6 +147,8 @@ export class ClaudeCliService {
 
     logger.info({ args, cwd: options.cwd }, 'Building Claude CLI args');
 
+    // Spawn the Claude CLI process with pipe streams for I/O
+    // stdio: ['pipe', 'pipe', 'pipe'] = [stdin, stdout, stderr]
     const claudeProcess = spawn('claude', args, {
       cwd: options.cwd || process.cwd(),
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -144,12 +157,13 @@ export class ClaudeCliService {
 
     logger.info({ pid: claudeProcess.pid }, 'Claude CLI process spawned');
 
-    // Close stdin immediately since we're using -p flag (non-interactive)
+    // Close stdin immediately - we pass the prompt via -p flag (non-interactive mode)
+    // This signals to Claude CLI that no more input is coming
     if (claudeProcess.stdin) {
       claudeProcess.stdin.end();
     }
 
-    // Handle spawn errors
+    // Handle spawn errors (e.g., 'claude' command not found)
     claudeProcess.on('error', (error) => {
       logger.error({ error: error.message }, 'Claude CLI spawn error');
     });
@@ -157,11 +171,14 @@ export class ClaudeCliService {
     let sessionId: string | null = null;
     let sessionIdExtracted = false;
 
-    // Promise to extract session ID from first system event
+    // Extract session_id from the first 'system' event in the NDJSON stream
+    // The session_id is needed for resuming conversations later with --resume flag
     const extractSessionId = new Promise<string | null>((resolve) => {
       const onData = (chunk: Buffer) => {
+        // Skip if we already extracted the session_id
         if (sessionIdExtracted) return;
 
+        // NDJSON format: each line is a complete JSON object
         const lines = chunk.toString().split('\n');
 
         for (const line of lines) {
@@ -170,17 +187,21 @@ export class ClaudeCliService {
           try {
             const event = JSON.parse(line);
 
+            // The 'system' event with subtype 'init' contains session_id
+            // This is always the first event from Claude CLI
             if (event.type === 'system' && event.session_id) {
               sessionId = event.session_id;
               sessionIdExtracted = true;
               logger.info({ sessionId }, 'Claude CLI session started');
 
+              // Stop listening once we have the session_id
               claudeProcess.stdout?.removeListener('data', onData);
               resolve(sessionId);
               return;
             }
           } catch (e) {
-            // Line might be incomplete, continue
+            // Line might be incomplete (chunked across multiple data events)
+            // This is expected with streaming - just continue to next chunk
             logger.debug({ line: line.substring(0, 100) }, 'Failed to parse CLI output line');
           }
         }
@@ -188,7 +209,8 @@ export class ClaudeCliService {
 
       claudeProcess.stdout?.on('data', onData);
 
-      // Timeout fallback (in case no system event arrives)
+      // Timeout fallback - if no system event arrives within 5 seconds,
+      // resolve with null. This handles edge cases like CLI errors.
       setTimeout(() => {
         if (!sessionIdExtracted) {
           claudeProcess.stdout?.removeListener('data', onData);
@@ -206,17 +228,26 @@ export class ClaudeCliService {
   /**
    * Stream Claude CLI output to WebSocket
    *
-   * Handles:
-   * - NDJSON parsing from stdout
-   * - Event routing to WebSocket
-   * - Timeout protection
-   * - Error handling from stderr
-   * - Process lifecycle management
+   * This method connects the CLI process stdout to a WebSocket connection,
+   * parsing NDJSON events in real-time and forwarding them to the frontend.
+   *
+   * NDJSON Parsing Strategy:
+   * - CLI outputs newline-delimited JSON (one complete JSON object per line)
+   * - Data arrives in chunks that may split across JSON boundaries
+   * - We buffer partial lines and only parse complete lines
+   * - Each parsed event is routed to handleEvent() for WebSocket delivery
+   *
+   * Event Types (from Claude CLI --output-format stream-json):
+   * - system: Initial event with session_id, model info, tools available
+   * - assistant: Claude's response text (may arrive in multiple events)
+   * - tool_use: Claude is calling a tool (Read, Write, Bash, etc.)
+   * - tool_result: Result of tool execution
+   * - result: Final event with usage stats, cost, and completion status
    *
    * @param claudeProcess - Spawned Claude CLI process
    * @param ws - WebSocket connection to frontend
-   * @param sessionId - UI session ID for tracking
-   * @param onComplete - Optional callback when CLI completes
+   * @param sessionId - UI session ID for tracking (different from CLI session_id)
+   * @param onComplete - Optional callback when CLI completes (for cleanup)
    */
   streamOutput(
     claudeProcess: ChildProcess,
@@ -225,10 +256,11 @@ export class ClaudeCliService {
     onComplete?: (result: ResultEvent) => void
   ): void {
     let isComplete = false;
-    let buffer = '';
-    let accumulatedContent = '';
+    let buffer = '';  // Buffer for incomplete NDJSON lines
+    let accumulatedContent = '';  // Track full response for logging
 
-    // Timeout protection
+    // Timeout protection - kill process if it runs too long
+    // Default is 10 minutes (configurable via CLAUDE_CLI_TIMEOUT_MS)
     const timeoutDurationSeconds = Math.round(this.timeoutMs / 1000);
     const timeout = setTimeout(() => {
       if (!claudeProcess.killed && !isComplete) {
@@ -246,14 +278,17 @@ export class ClaudeCliService {
       }
     }, this.timeoutMs);
 
-    // Handle stdout (NDJSON stream)
+    // Handle stdout - this is where NDJSON events arrive
     claudeProcess.stdout?.on('data', (chunk: Buffer) => {
+      // Append chunk to buffer (may contain partial lines from previous chunk)
       buffer += chunk.toString();
       const lines = buffer.split('\n');
 
-      // Keep incomplete line in buffer
+      // Keep the last element in buffer - it's either empty or incomplete line
+      // Complete lines have newline at end, so split gives empty string as last element
       buffer = lines.pop() || '';
 
+      // Process each complete line as a JSON event
       for (const line of lines) {
         if (!line.trim()) continue;
 
@@ -261,7 +296,7 @@ export class ClaudeCliService {
           const event = JSON.parse(line);
           this.handleEvent(event, ws, sessionId);
 
-          // Accumulate assistant message content
+          // Track accumulated content for debugging/logging
           if (event.type === 'assistant' && event.message?.content) {
             const text = event.message.content
               .filter((c: { type: string }) => c.type === 'text')
@@ -271,7 +306,7 @@ export class ClaudeCliService {
             accumulatedContent += text;
           }
 
-          // Handle completion
+          // 'result' event signals completion - cleanup and notify
           if (event.type === 'result') {
             isComplete = true;
             clearTimeout(timeout);
@@ -281,6 +316,8 @@ export class ClaudeCliService {
             }
           }
         } catch (error) {
+          // JSON parse errors are usually due to corrupted output
+          // Log but don't crash - try to continue processing
           logger.warn({ error, line: line.substring(0, 100) }, 'Failed to parse CLI output');
         }
       }
@@ -441,8 +478,18 @@ export class ClaudeCliService {
 
   /**
    * Build command-line arguments for Claude CLI
+   *
+   * Constructs the argument array for the 'claude' command based on options.
+   * Key flags used:
+   * - `-p <prompt>`: Non-interactive mode with prompt passed as argument
+   * - `--output-format stream-json`: Enable NDJSON streaming output
+   * - `--verbose`: Required for stream-json to work properly
+   * - `--resume <id>`: Resume a previous conversation by session ID
+   * - `--append-system-prompt`: Add custom system prompt (for agent personas)
+   * - `--dangerously-skip-permissions`: Auto-accept all tool use requests
    */
   private buildArgs(prompt: string, options: ClaudeCliOptions): string[] {
+    // Base arguments: prompt mode with streaming JSON output
     const args: string[] = [
       '-p', prompt,                     // Print mode (non-interactive)
       '--output-format', 'stream-json', // Streaming JSON (NDJSON)

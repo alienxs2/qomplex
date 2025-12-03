@@ -1,20 +1,39 @@
-import { useState, useEffect, useCallback, ReactNode } from 'react';
+import { useState, useEffect, useCallback, useRef, ReactNode } from 'react';
+import type { Project } from '@shared/types';
 import { useProjectStore } from '../store/projectStore';
 import { useAgentStore } from '../store/agentStore';
 import { useTabStore } from '../store/tabStore';
+import { ProjectSelector } from './ProjectSelector';
+import { MobileTabSwitcher } from './MobileTabSwitcher';
+import { ReconnectingBanner, ConnectionStatus } from './Skeleton';
+import type { ConnectionStatus as ConnectionStatusType } from '../hooks/useWebSocket';
 
 /**
  * Mobile view states for navigation
- * - 'agents': Shows agent list
- * - 'chat': Shows active chat/content panel
+ * - 'agent-list': Shows agent list (sidebar content)
+ * - 'chat': Shows active chat panel
+ * - 'doc': Shows document viewer
  */
-type MobileView = 'agents' | 'chat';
+type MobileView = 'agent-list' | 'chat' | 'doc';
+
+/**
+ * Swipe gesture configuration
+ */
+const SWIPE_THRESHOLD = 50; // Minimum pixels to trigger swipe
+const SWIPE_VELOCITY_THRESHOLD = 0.3; // Minimum velocity to trigger swipe
+const VERTICAL_THRESHOLD = 30; // Max vertical movement to consider horizontal swipe
 
 /**
  * MainLayout Props following design.md interface
  */
 interface MainLayoutProps {
   children: React.ReactNode;
+  /** WebSocket connection status for showing reconnecting indicator */
+  connectionStatus?: ConnectionStatusType;
+  /** Current reconnect attempt number */
+  reconnectAttempt?: number;
+  /** Callback to manually trigger reconnection */
+  onReconnect?: () => void;
 }
 
 /**
@@ -59,17 +78,37 @@ function Sidebar({ header, children }: SidebarProps) {
  *
  * @param children - Main content to render in the content area
  */
-export function MainLayout({ children }: MainLayoutProps) {
-  // Mobile view state - 'agents' shows list, 'chat' shows content
-  const [mobileView, setMobileView] = useState<MobileView>('agents');
+export function MainLayout({
+  children,
+  connectionStatus = 'connected',
+  reconnectAttempt = 0,
+  onReconnect,
+}: MainLayoutProps) {
+  // Mobile view state - 'agent-list' shows list, 'chat' shows content, 'doc' shows document
+  const [mobileView, setMobileView] = useState<MobileView>('agent-list');
+
+  // Determine if we should show the reconnecting banner
+  const showReconnectingBanner = connectionStatus === 'reconnecting' || connectionStatus === 'connecting';
 
   // Track if we're in desktop mode for conditional rendering
   const [isDesktop, setIsDesktop] = useState(false);
 
+  // Tab switcher modal state
+  const [isTabSwitcherOpen, setIsTabSwitcherOpen] = useState(false);
+
   // Store access
-  const { currentProject } = useProjectStore();
+  const { projects, currentProject, setCurrentProject, createProject, isLoading: projectsLoading } = useProjectStore();
   const { agents, currentAgent, setCurrentAgent } = useAgentStore();
-  const { tabs } = useTabStore();
+  const { tabs, activeTabId, setActiveTab, closeTab } = useTabStore();
+
+  // Swipe gesture tracking refs
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const isSwipingRef = useRef(false);
+  const swipeContainerRef = useRef<HTMLDivElement>(null);
+
+  // Scroll position preservation for each tab
+  const scrollPositionsRef = useRef<Map<string, number>>(new Map());
+  const contentScrollRef = useRef<HTMLDivElement>(null);
 
   /**
    * Check and update desktop state based on window width
@@ -95,6 +134,140 @@ export function MainLayout({ children }: MainLayoutProps) {
   }, [checkDesktop]);
 
   /**
+   * Save scroll position before switching tabs
+   */
+  const saveScrollPosition = useCallback(() => {
+    if (contentScrollRef.current && activeTabId) {
+      scrollPositionsRef.current.set(activeTabId, contentScrollRef.current.scrollTop);
+    }
+  }, [activeTabId]);
+
+  /**
+   * Restore scroll position when switching to a tab
+   */
+  const restoreScrollPosition = useCallback((tabId: string) => {
+    if (contentScrollRef.current) {
+      const savedPosition = scrollPositionsRef.current.get(tabId) || 0;
+      // Use requestAnimationFrame for smooth scroll restoration
+      requestAnimationFrame(() => {
+        if (contentScrollRef.current) {
+          contentScrollRef.current.scrollTop = savedPosition;
+        }
+      });
+    }
+  }, []);
+
+  /**
+   * Handle touch start for swipe detection
+   */
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    // Only track swipes on mobile in chat/doc view
+    if (isDesktop || mobileView === 'agent-list') return;
+
+    const touch = e.touches[0];
+    if (!touch) return;
+
+    touchStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      time: Date.now()
+    };
+    isSwipingRef.current = false;
+  }, [isDesktop, mobileView]);
+
+  /**
+   * Handle touch move for swipe detection
+   * Prevents accidental swipes during vertical scrolling
+   */
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!touchStartRef.current || isDesktop || mobileView === 'agent-list') return;
+
+    const touch = e.touches[0];
+    if (!touch) return;
+
+    const deltaX = touch.clientX - touchStartRef.current.x;
+    const deltaY = Math.abs(touch.clientY - touchStartRef.current.y);
+
+    // If vertical movement exceeds threshold, cancel swipe detection
+    if (deltaY > VERTICAL_THRESHOLD) {
+      touchStartRef.current = null;
+      return;
+    }
+
+    // If horizontal movement exceeds threshold, we're swiping
+    if (Math.abs(deltaX) > SWIPE_THRESHOLD / 2) {
+      isSwipingRef.current = true;
+    }
+  }, [isDesktop, mobileView]);
+
+  /**
+   * Handle touch end for swipe completion
+   * Switches between open tabs based on swipe direction
+   */
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!touchStartRef.current || isDesktop || mobileView === 'agent-list') {
+      touchStartRef.current = null;
+      return;
+    }
+
+    const touch = e.changedTouches[0];
+    if (!touch) {
+      touchStartRef.current = null;
+      return;
+    }
+
+    const deltaX = touch.clientX - touchStartRef.current.x;
+    const deltaY = Math.abs(touch.clientY - touchStartRef.current.y);
+    const deltaTime = Date.now() - touchStartRef.current.time;
+    const velocity = Math.abs(deltaX) / deltaTime;
+
+    touchStartRef.current = null;
+
+    // Ignore if vertical movement was too large (user was scrolling)
+    if (deltaY > VERTICAL_THRESHOLD) {
+      return;
+    }
+
+    // Check if swipe meets threshold requirements
+    const isValidSwipe =
+      (Math.abs(deltaX) > SWIPE_THRESHOLD || velocity > SWIPE_VELOCITY_THRESHOLD) &&
+      isSwipingRef.current;
+
+    if (!isValidSwipe || tabs.length < 2) return;
+
+    // Find current tab index
+    const currentTabIndex = tabs.findIndex(t => t.id === activeTabId);
+    if (currentTabIndex === -1) return;
+
+    // Save current scroll position before switching
+    saveScrollPosition();
+
+    if (deltaX > 0) {
+      // Swipe right - go to previous tab
+      const prevIndex = currentTabIndex > 0 ? currentTabIndex - 1 : tabs.length - 1;
+      const prevTab = tabs[prevIndex];
+      if (prevTab) {
+        setActiveTab(prevTab.id);
+        // Update view based on tab type
+        setMobileView(prevTab.type === 'doc' ? 'doc' : 'chat');
+        restoreScrollPosition(prevTab.id);
+      }
+    } else {
+      // Swipe left - go to next tab
+      const nextIndex = currentTabIndex < tabs.length - 1 ? currentTabIndex + 1 : 0;
+      const nextTab = tabs[nextIndex];
+      if (nextTab) {
+        setActiveTab(nextTab.id);
+        // Update view based on tab type
+        setMobileView(nextTab.type === 'doc' ? 'doc' : 'chat');
+        restoreScrollPosition(nextTab.id);
+      }
+    }
+
+    isSwipingRef.current = false;
+  }, [isDesktop, mobileView, tabs, activeTabId, setActiveTab, saveScrollPosition, restoreScrollPosition]);
+
+  /**
    * Handle agent selection - switches to chat view on mobile
    */
   const handleAgentSelect = useCallback((agentId: string) => {
@@ -110,10 +283,55 @@ export function MainLayout({ children }: MainLayoutProps) {
 
   /**
    * Handle back navigation on mobile - returns to agent list
+   * Saves scroll position before navigating
    */
   const handleMobileBack = useCallback(() => {
-    setMobileView('agents');
+    saveScrollPosition();
+    setMobileView('agent-list');
+  }, [saveScrollPosition]);
+
+  /**
+   * Handle tab switcher open
+   */
+  const handleOpenTabSwitcher = useCallback(() => {
+    setIsTabSwitcherOpen(true);
   }, []);
+
+  /**
+   * Handle tab switcher close
+   */
+  const handleCloseTabSwitcher = useCallback(() => {
+    setIsTabSwitcherOpen(false);
+  }, []);
+
+  /**
+   * Handle tab selection from MobileTabSwitcher
+   */
+  const handleSelectTab = useCallback((tabId: string) => {
+    saveScrollPosition();
+    setActiveTab(tabId);
+
+    // Find the tab to determine which view to show
+    const selectedTab = tabs.find(t => t.id === tabId);
+    if (selectedTab) {
+      setMobileView(selectedTab.type === 'doc' ? 'doc' : 'chat');
+      restoreScrollPosition(tabId);
+    }
+
+    setIsTabSwitcherOpen(false);
+  }, [tabs, setActiveTab, saveScrollPosition, restoreScrollPosition]);
+
+  /**
+   * Handle tab close from MobileTabSwitcher
+   */
+  const handleCloseTab = useCallback((tabId: string) => {
+    closeTab(tabId);
+
+    // If closing the last tab, return to agent list
+    if (tabs.length <= 1) {
+      setMobileView('agent-list');
+    }
+  }, [tabs.length, closeTab]);
 
   /**
    * Get the current project name for display
@@ -126,47 +344,25 @@ export function MainLayout({ children }: MainLayoutProps) {
   const currentAgentName = currentAgent?.name || 'Chat';
 
   /**
-   * Render the sidebar header with project selector placeholder
-   * ProjectSelector component will be created in task 5.3
+   * Handle project selection from ProjectSelector
+   */
+  const handleProjectSelect = useCallback((project: Project) => {
+    setCurrentProject(project);
+  }, [setCurrentProject]);
+
+  /**
+   * Render the sidebar header with ProjectSelector component
+   * Integrated DirectoryBrowser for new project creation (task 6.2)
    */
   const renderSidebarHeader = () => (
     <div className="p-4">
-      <button
-        className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors min-h-touch"
-        aria-label="Select project"
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          <svg
-            className="w-5 h-5 text-gray-500 flex-shrink-0"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-            />
-          </svg>
-          <span className="font-medium text-gray-900 truncate">
-            {projectName}
-          </span>
-        </div>
-        <svg
-          className="w-4 h-4 text-gray-500 flex-shrink-0"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 9l-7 7-7-7"
-          />
-        </svg>
-      </button>
+      <ProjectSelector
+        projects={projects}
+        currentProject={currentProject}
+        onSelect={handleProjectSelect}
+        onCreateProject={createProject}
+        isLoading={projectsLoading}
+      />
     </div>
   );
 
@@ -218,13 +414,28 @@ export function MainLayout({ children }: MainLayoutProps) {
   );
 
   /**
+   * Get display title for mobile header based on current view and active tab
+   */
+  const getMobileTitle = useCallback(() => {
+    if (mobileView === 'agent-list') return 'Agents';
+
+    // Try to get title from active tab
+    if (activeTabId) {
+      const activeTab = tabs.find(t => t.id === activeTabId);
+      if (activeTab) return activeTab.title;
+    }
+
+    return currentAgentName;
+  }, [mobileView, activeTabId, tabs, currentAgentName]);
+
+  /**
    * Render the mobile header
    */
   const renderMobileHeader = () => (
     <header className="flex-shrink-0 bg-white border-b border-gray-200 safe-area-top">
       <div className="flex items-center gap-2 px-3 py-2 min-h-[56px]">
-        {/* Back button or menu - only show back when in chat view */}
-        {mobileView === 'chat' ? (
+        {/* Back button or menu - only show back when in chat/doc view */}
+        {mobileView !== 'agent-list' ? (
           <button
             onClick={handleMobileBack}
             className="p-2 -ml-2 min-w-touch min-h-touch flex items-center justify-center"
@@ -265,20 +476,20 @@ export function MainLayout({ children }: MainLayoutProps) {
           </button>
         )}
 
-        {/* Title - shows agent name in chat view, "Agents" in list view */}
+        {/* Title - shows tab title in chat/doc view, "Agents" in list view */}
         <div className="flex-1 min-w-0">
           <h1 className="font-semibold text-gray-900 truncate">
-            {mobileView === 'chat' ? currentAgentName : 'Agents'}
+            {getMobileTitle()}
           </h1>
-          {mobileView === 'chat' && currentAgent && (
+          {mobileView !== 'agent-list' && currentAgent && (
             <p className="text-xs text-gray-500 truncate">
               {projectName}
             </p>
           )}
         </div>
 
-        {/* Project selector button on mobile */}
-        {mobileView === 'agents' && (
+        {/* Project selector button on mobile agent list view */}
+        {mobileView === 'agent-list' && (
           <button
             className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors min-h-touch"
             aria-label="Select project"
@@ -302,11 +513,12 @@ export function MainLayout({ children }: MainLayoutProps) {
           </button>
         )}
 
-        {/* Tab switcher button when there are multiple tabs */}
-        {mobileView === 'chat' && tabs.length > 1 && (
+        {/* Tab switcher button when there are tabs and in chat/doc view */}
+        {mobileView !== 'agent-list' && tabs.length > 0 && (
           <button
+            onClick={handleOpenTabSwitcher}
             className="p-2 min-w-touch min-h-touch flex items-center justify-center relative"
-            aria-label="Switch tabs"
+            aria-label={`${tabs.length} open tab${tabs.length !== 1 ? 's' : ''}`}
           >
             <svg
               className="w-5 h-5 text-gray-600"
@@ -321,9 +533,11 @@ export function MainLayout({ children }: MainLayoutProps) {
                 d="M4 6h16M4 10h16M4 14h16M4 18h16"
               />
             </svg>
-            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-primary-500 text-white text-xs rounded-full flex items-center justify-center">
-              {tabs.length}
-            </span>
+            {tabs.length > 1 && (
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-primary-500 text-white text-xs rounded-full flex items-center justify-center">
+                {tabs.length}
+              </span>
+            )}
           </button>
         )}
       </div>
@@ -360,6 +574,14 @@ export function MainLayout({ children }: MainLayoutProps) {
           <div className="text-sm text-gray-500">
             {tabs.length} tab{tabs.length !== 1 ? 's' : ''} open
           </div>
+        )}
+
+        {/* Connection status indicator - shows when not fully connected */}
+        {connectionStatus !== 'connected' && (
+          <ConnectionStatus
+            status={connectionStatus}
+            reconnectAttempt={reconnectAttempt}
+          />
         )}
       </div>
     </header>
@@ -404,6 +626,13 @@ export function MainLayout({ children }: MainLayoutProps) {
   if (isDesktop) {
     return (
       <div className="h-full flex flex-col bg-gray-100">
+        {/* Reconnecting Banner - shown when WebSocket is reconnecting */}
+        <ReconnectingBanner
+          visible={showReconnectingBanner}
+          attempt={reconnectAttempt}
+          onReconnect={onReconnect}
+        />
+
         {/* Desktop Header */}
         {renderDesktopHeader()}
 
@@ -430,19 +659,32 @@ export function MainLayout({ children }: MainLayoutProps) {
   // ==========================================================================
   return (
     <div className="h-full flex flex-col bg-white">
+      {/* Reconnecting Banner - shown when WebSocket is reconnecting */}
+      <ReconnectingBanner
+        visible={showReconnectingBanner}
+        attempt={reconnectAttempt}
+        onReconnect={onReconnect}
+      />
+
       {/* Mobile Header */}
       {renderMobileHeader()}
 
-      {/* Content area - shows either agent list or chat based on mobileView */}
-      <div className="flex-1 overflow-hidden relative">
+      {/* Content area - shows either agent list or chat/doc based on mobileView */}
+      <div
+        ref={swipeContainerRef}
+        className="flex-1 overflow-hidden relative"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         {/* Agent list view */}
         <div
           className={`
             absolute inset-0 flex flex-col bg-white
             transition-transform duration-200 ease-out
-            ${mobileView === 'agents' ? 'translate-x-0' : '-translate-x-full'}
+            ${mobileView === 'agent-list' ? 'translate-x-0' : '-translate-x-full'}
           `}
-          aria-hidden={mobileView !== 'agents'}
+          aria-hidden={mobileView !== 'agent-list'}
         >
           {/* Project selector at top on mobile */}
           <div className="flex-shrink-0 border-b border-gray-200">
@@ -454,18 +696,42 @@ export function MainLayout({ children }: MainLayoutProps) {
           </div>
         </div>
 
-        {/* Chat/Content view */}
+        {/* Chat/Content view with swipe support */}
         <div
+          ref={contentScrollRef}
           className={`
             absolute inset-0 flex flex-col bg-white
             transition-transform duration-200 ease-out
-            ${mobileView === 'chat' ? 'translate-x-0' : 'translate-x-full'}
+            ${mobileView !== 'agent-list' ? 'translate-x-0' : 'translate-x-full'}
           `}
-          aria-hidden={mobileView !== 'chat'}
+          aria-hidden={mobileView === 'agent-list'}
+          style={{
+            // Use will-change for smoother 60fps animations
+            willChange: 'transform',
+          }}
         >
+          {/* Swipe hint indicator - shows tab navigation is available */}
+          {tabs.length > 1 && (
+            <div className="absolute top-1/2 left-0 right-0 pointer-events-none z-10 flex justify-between px-1 -translate-y-1/2">
+              {/* Left swipe hint */}
+              <div className="w-1 h-12 bg-gradient-to-r from-gray-300 to-transparent rounded-r opacity-30" />
+              {/* Right swipe hint */}
+              <div className="w-1 h-12 bg-gradient-to-l from-gray-300 to-transparent rounded-l opacity-30" />
+            </div>
+          )}
           {children || renderEmptyState()}
         </div>
       </div>
+
+      {/* Mobile Tab Switcher Modal */}
+      <MobileTabSwitcher
+        tabs={tabs}
+        activeTabId={activeTabId || ''}
+        onSelectTab={handleSelectTab}
+        onCloseTab={handleCloseTab}
+        isOpen={isTabSwitcherOpen}
+        onClose={handleCloseTabSwitcher}
+      />
     </div>
   );
 }

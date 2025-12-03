@@ -1,8 +1,28 @@
 /**
  * WebSocket Message Handler
- * Handles incoming WebSocket messages and integrates with Claude CLI
  *
- * Based on clipendra-repo handler pattern with Qomplex auth context
+ * This module handles incoming WebSocket messages from the frontend and integrates
+ * with Claude CLI for real-time chat functionality. It's the bridge between the
+ * user interface and the Claude CLI process.
+ *
+ * Message Flow:
+ * 1. Frontend connects via WebSocket with JWT auth
+ * 2. Frontend sends 'query' message with prompt, agentId, projectId
+ * 3. Handler validates ownership, loads agent/project from database
+ * 4. Handler spawns Claude CLI via ClaudeCliService
+ * 5. CLI output is streamed back to frontend in real-time
+ * 6. On completion, token usage is checked and session_id is saved
+ *
+ * Supported Message Types:
+ * - query: Send a message to Claude (main chat functionality)
+ * - history: Load chat history from CLI transcripts
+ * - cancel: Cancel an in-progress CLI request
+ * - ping: Keep-alive heartbeat
+ *
+ * Error Handling:
+ * - All errors are mapped to user-friendly messages with action suggestions
+ * - CLI-specific errors (auth, terms) are handled with appropriate codes
+ * - Process cleanup happens on disconnect and shutdown
  */
 
 import { WebSocket } from 'ws';
@@ -26,7 +46,8 @@ import {
   isValidHistoryMessage
 } from './types.js';
 
-// Token warning threshold (120K tokens as per design.md)
+// Token warning threshold - warn users when approaching Claude's context limit
+// At 120K tokens, we suggest starting a new session to avoid hitting the 128K limit
 const TOKEN_WARNING_THRESHOLD = 120_000;
 
 /**
@@ -64,6 +85,17 @@ export function createMessageHandler() {
 
   /**
    * Handle query message - spawn Claude CLI and stream response
+   *
+   * This is the core function that processes user messages. It:
+   * 1. Validates the user owns the project and agent
+   * 2. Checks no other CLI process is already running
+   * 3. Builds CLI options (working directory, session resume, system prompt)
+   * 4. Spawns the Claude CLI process
+   * 5. Saves the session_id for future conversation resume
+   * 6. Monitors token usage and warns if approaching limits
+   *
+   * Only one CLI process is allowed per WebSocket connection at a time.
+   * This prevents resource exhaustion and race conditions.
    */
   async function handleQuery(
     ws: AuthenticatedWebSocket,
@@ -86,7 +118,8 @@ export function createMessageHandler() {
       sessionId
     });
 
-    // Check if there's already an active CLI process
+    // Prevent concurrent CLI processes per WebSocket connection
+    // This ensures predictable behavior and prevents resource exhaustion
     if (activeSessions.has(ws)) {
       handlerLog.warn('Session busy - CLI already running');
       sendError(ws, 'Another request is in progress', 'SESSION_BUSY', sessionId);
@@ -94,7 +127,7 @@ export function createMessageHandler() {
     }
 
     try {
-      // Get project info
+      // Validate ownership: user must own the project
       const project = await projectService.getByIdForUser(projectId, context.userId);
       if (!project) {
         handlerLog.warn('Project not found');
@@ -102,7 +135,7 @@ export function createMessageHandler() {
         return;
       }
 
-      // Get agent info
+      // Validate ownership: agent must belong to user's project
       const agent = await agentService.getByIdForUser(agentId, context.userId);
       if (!agent) {
         handlerLog.warn('Agent not found');
@@ -116,29 +149,31 @@ export function createMessageHandler() {
         hasSessionId: !!agent.session_id
       }, 'Processing query');
 
-      // Build CLI options
+      // Build CLI options for this request
       const cliOptions: ClaudeCliOptions = {
-        cwd: project.working_directory,
-        dangerouslySkipPermissions: true,
-        permissionMode: 'acceptEdits',
+        cwd: project.working_directory,  // Set working directory to project path
+        dangerouslySkipPermissions: true,  // Auto-accept tool use (for web UI experience)
+        permissionMode: 'acceptEdits',  // Auto-accept file edits
       };
 
-      // Use session resume if agent has previous session
+      // Resume previous conversation if agent has a stored session_id
+      // This allows users to continue conversations across browser sessions
       if (agent.session_id) {
         cliOptions.resumeSessionId = agent.session_id;
         handlerLog.info({ sessionId: agent.session_id }, 'Resuming previous session');
       }
 
-      // Add agent system prompt if defined
+      // Inject agent's custom system prompt if defined
+      // This is how different agents (PM, Dev, etc.) have different personas
       if (agent.system_prompt) {
         cliOptions.appendSystemPrompt = agent.system_prompt;
       }
 
-      // Mark session as active
+      // Mark this WebSocket as having an active CLI process
       activeSessions.set(ws, sessionId);
       context.activeSessionId = sessionId;
 
-      // Spawn Claude CLI
+      // Spawn the Claude CLI process
       const { process: claudeProcess, sessionId: cliSessionId } = await claudeCliService.spawnClaude(
         prompt,
         cliOptions
@@ -146,7 +181,8 @@ export function createMessageHandler() {
 
       handlerLog.info({ cliSessionId, pid: claudeProcess.pid }, 'CLI process spawned');
 
-      // Update agent's session_id if new
+      // Persist the CLI session_id for future conversation resume
+      // This happens when a new session is created or the first message is sent
       if (cliSessionId && cliSessionId !== agent.session_id) {
         await agentService.update(agentId, context.userId, {
           session_id: cliSessionId
@@ -154,15 +190,16 @@ export function createMessageHandler() {
         handlerLog.info({ cliSessionId }, 'Updated agent session_id');
       }
 
-      // Handle completion callback
+      // Callback for when CLI completes - cleanup and token warning
       const onComplete = async (result: ResultEvent) => {
-        // Clear active session
+        // Clear the active session marker
         activeSessions.delete(ws);
         if (context) {
           context.activeSessionId = null;
         }
 
-        // Check token usage for warning
+        // Check if we're approaching the context limit (120K tokens)
+        // Warn the user so they can start a new session before hitting the limit
         if (result.usage) {
           const totalTokens =
             (result.usage.input_tokens || 0) +
@@ -184,10 +221,12 @@ export function createMessageHandler() {
         }
       };
 
-      // Stream output to WebSocket
+      // Start streaming CLI output to the WebSocket
+      // This handles all the NDJSON parsing and message forwarding
       claudeCliService.streamOutput(claudeProcess, ws, sessionId, onComplete);
 
     } catch (error) {
+      // Cleanup on error - ensure we don't leave orphaned state
       handlerLog.error({ error }, 'Error handling query');
       activeSessions.delete(ws);
       if (context) {
@@ -235,7 +274,13 @@ export function createMessageHandler() {
   }
 
   /**
-   * Handle history message - load chat history from transcripts
+   * Handle history message - load chat history from Claude CLI transcripts
+   *
+   * Claude CLI stores conversation transcripts in ~/.claude/projects/<hash>/sessions/
+   * as JSONL (JSON Lines) files. This function loads and parses those files to
+   * display previous messages when a user selects an agent.
+   *
+   * The transcript files are read-only - we never modify Claude CLI's data.
    */
   async function handleHistory(
     ws: AuthenticatedWebSocket,
@@ -324,7 +369,14 @@ export function createMessageHandler() {
   }
 
   /**
-   * Main message handler
+   * Main message handler - routes incoming WebSocket messages to appropriate handlers
+   *
+   * This is the entry point for all client messages. It:
+   * 1. Parses the JSON message
+   * 2. Validates the message structure using type guards
+   * 3. Routes to the appropriate handler function
+   *
+   * Type guards (isValidQueryMessage, etc.) ensure type safety at runtime.
    */
   return async function handleMessage(
     ws: AuthenticatedWebSocket,
@@ -332,7 +384,7 @@ export function createMessageHandler() {
   ): Promise<void> {
     let message: ClientMessage;
 
-    // Parse message
+    // Parse incoming JSON message
     try {
       message = JSON.parse(data);
     } catch (error) {
@@ -341,8 +393,10 @@ export function createMessageHandler() {
       return;
     }
 
-    // Handle message by type
+    // Route message to appropriate handler based on type
+    // Type guards validate the message structure before processing
     if (isValidQueryMessage(message)) {
+      // User sending a message to Claude
       await handleQuery(
         ws,
         message.prompt,
@@ -351,10 +405,13 @@ export function createMessageHandler() {
         message.projectId
       );
     } else if (isValidPingMessage(message)) {
+      // Keep-alive heartbeat
       handlePing(ws, message.timestamp);
     } else if (isValidCancelMessage(message)) {
+      // Cancel in-progress request
       handleCancel(ws, message.sessionId);
     } else if (isValidHistoryMessage(message)) {
+      // Load chat history
       await handleHistory(
         ws,
         message.agentId,

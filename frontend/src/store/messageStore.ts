@@ -18,6 +18,7 @@ interface MessageState {
   messages: Message[];
   isLoading: boolean;
   isStreaming: boolean;
+  isLoadingHistory: boolean; // REQ-8: Loading history state
   contextUsage: ContextUsage;
   error: string | null;
 
@@ -29,6 +30,7 @@ interface MessageState {
   setContextUsage: (usage: ContextUsage) => void;
   setIsLoading: (loading: boolean) => void;
   setIsStreaming: (streaming: boolean) => void;
+  setIsLoadingHistory: (loading: boolean) => void; // REQ-8
   setError: (error: string | null) => void;
 }
 
@@ -50,6 +52,7 @@ export const useMessageStore = create<MessageState>()((set) => ({
   messages: [],
   isLoading: false,
   isStreaming: false,
+  isLoadingHistory: false,
   contextUsage: { ...DEFAULT_CONTEXT_USAGE },
   error: null,
 
@@ -135,6 +138,7 @@ export const useMessageStore = create<MessageState>()((set) => ({
       messages: [],
       isLoading: false,
       isStreaming: false,
+      isLoadingHistory: false,
       contextUsage: { ...DEFAULT_CONTEXT_USAGE },
       error: null,
     });
@@ -162,6 +166,14 @@ export const useMessageStore = create<MessageState>()((set) => ({
    */
   setIsStreaming: (streaming: boolean) => {
     set({ isStreaming: streaming });
+  },
+
+  /**
+   * Set loading history state (REQ-8)
+   * Used when fetching chat history from transcript
+   */
+  setIsLoadingHistory: (loading: boolean) => {
+    set({ isLoadingHistory: loading });
   },
 
   /**

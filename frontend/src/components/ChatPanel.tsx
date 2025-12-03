@@ -10,15 +10,30 @@ import {
 import { useMessageStore } from '../store/messageStore';
 import { useAgentStore } from '../store/agentStore';
 import { MessageBubble } from './MessageBubble';
+import { MessageListSkeleton } from './Skeleton';
 import type { Message } from '@shared/types';
 
 /**
  * ChatPanel Props following design.md interface
+ *
+ * Extended for WebSocket integration:
+ * - isLoading: External loading state from WebSocket (waiting for initial response)
+ * - isStreaming: External streaming state from WebSocket (receiving chunks)
+ * - isDisabled: Disable input (e.g., when disconnected)
+ * - isLoadingHistory: Show skeleton while loading chat history
  */
 interface ChatPanelProps {
   agentId: string;
   showHeader?: boolean;
   onSendMessage?: (content: string) => void;
+  /** External loading state - overrides internal if provided */
+  isLoading?: boolean;
+  /** External streaming state - overrides internal if provided */
+  isStreaming?: boolean;
+  /** Disable the input field */
+  isDisabled?: boolean;
+  /** Loading state for chat history (shows skeleton) */
+  isLoadingHistory?: boolean;
 }
 
 /**
@@ -283,15 +298,29 @@ export function ChatPanel({
   agentId,
   showHeader = true,
   onSendMessage,
+  isLoading: externalIsLoading,
+  isStreaming: externalIsStreaming,
+  isDisabled = false,
+  isLoadingHistory = false,
 }: ChatPanelProps) {
   // Refs
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Store access
-  const { messages, isLoading, isStreaming, addMessage, contextUsage } =
-    useMessageStore();
+  const {
+    messages,
+    isLoading: storeIsLoading,
+    isStreaming: storeIsStreaming,
+    addMessage,
+    contextUsage,
+    error: storeError,
+  } = useMessageStore();
   const { agents, currentAgent } = useAgentStore();
+
+  // Use external state if provided, otherwise use store state
+  const isLoading = externalIsLoading !== undefined ? externalIsLoading : storeIsLoading;
+  const isStreaming = externalIsStreaming !== undefined ? externalIsStreaming : storeIsStreaming;
 
   // Find the current agent from the store
   const agent = useMemo(() => {
@@ -429,13 +458,18 @@ export function ChatPanel({
         ref={messagesContainerRef}
         className="flex-1 overflow-y-auto scroll-smooth-touch"
       >
-        {/* Empty state */}
-        {!hasMessages && !isLoading && (
+        {/* Loading history skeleton - shows while fetching chat history */}
+        {isLoadingHistory && (
+          <MessageListSkeleton pairs={3} />
+        )}
+
+        {/* Empty state - only show when not loading history */}
+        {!isLoadingHistory && !hasMessages && !isLoading && (
           <EmptyState agentName={agentName} agentDescription={agentDescription || undefined} />
         )}
 
-        {/* Message list */}
-        {hasMessages && (
+        {/* Message list - only show when not loading history */}
+        {!isLoadingHistory && hasMessages && (
           <div className="py-2">
             {messages.map((message) => (
               <MessageBubble
@@ -448,7 +482,7 @@ export function ChatPanel({
         )}
 
         {/* Typing indicator during streaming */}
-        {(isLoading || isStreaming) && (
+        {(isLoading || isStreaming) && !isLoadingHistory && (
           <TypingIndicator agentName={agentName} />
         )}
 
@@ -456,12 +490,40 @@ export function ChatPanel({
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Error banner */}
+      {storeError && (
+        <div className="flex-shrink-0 bg-red-50 border-t border-red-200 px-4 py-2">
+          <p className="text-sm text-red-700 flex items-center gap-2">
+            <svg
+              className="w-4 h-4 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            {storeError}
+          </p>
+        </div>
+      )}
+
       {/* Message input */}
       <ChatInput
         onSend={handleSendMessage}
-        disabled={!agent}
+        disabled={!agent || isDisabled}
         isLoading={isLoading}
-        placeholder={agent ? `Message ${agentName}...` : 'Select an agent to chat'}
+        placeholder={
+          isDisabled
+            ? 'Connecting...'
+            : agent
+              ? `Message ${agentName}...`
+              : 'Select an agent to chat'
+        }
       />
     </div>
   );
