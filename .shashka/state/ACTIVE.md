@@ -91,6 +91,10 @@ None - All phases complete!
 ## How to Start Next Session
 
 1. Read handoff notes: `.shashka/state/HANDOFF.md`
-2. Open tasks document: `.spec-workflow/specs/qomplex-mvp/tasks.md`
-3. Start with Task 6.1 (Connect ChatPanel to WebSocket)
-4. Follow workflow: mark in-progress -> implement -> log -> mark complete
+2. Read README.md for project overview and setup
+3. Run `docker-compose --profile dev up` for development
+4. Open http://localhost:5173 to test the app
+
+### Known Issues to Address
+- Production Dockerfile has TypeScript build errors (use dev mode for now)
+- Consider adding E2E tests with Playwright
